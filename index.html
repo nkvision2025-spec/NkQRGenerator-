@@ -271,7 +271,7 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">First Name (पहला नाम) <span class="text-red-500">*</span></label>
-                                <input type="text" id="vc-fname" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent dark:text-white focus:ring-2 focus:ring-blue-500 outline-none placeholder:text-slate-400 dark:placeholder:text-slate-500" placeholder="Jaise: Rahul">
+                                <input type="text" id="vc-fname" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent dark:text-white focus:ring-2 focus:ring-blue-500 outline-none placeholder:text-slate-400 dark:placeholder:text-slate-500" placeholder="Jaise: Ganesh">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Last Name (सरनेम)</label>
@@ -285,16 +285,38 @@
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Email ID</label>
-                                <input type="email" id="vc-email" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent dark:text-white focus:ring-2 focus:ring-blue-500 outline-none placeholder:text-slate-400 dark:placeholder:text-slate-500" placeholder="rahul@example.com">
+                                <input type="email" id="vc-email" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent dark:text-white focus:ring-2 focus:ring-blue-500 outline-none placeholder:text-slate-400 dark:placeholder:text-slate-500" placeholder="ganesh@example.com">
                             </div>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Company</label>
                             <input type="text" id="vc-org" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent dark:text-white focus:ring-2 focus:ring-blue-500 outline-none placeholder:text-slate-400 dark:placeholder:text-slate-500" placeholder="Company Name">
                         </div>
-                        <button onclick="generateVCardQR()" class="w-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-xl transition-all flex justify-center items-center gap-2 mt-4">
-                            <i data-lucide="zap" class="w-5 h-5"></i> Generate Contact QR
-                        </button>
+                        
+                        <div class="flex flex-col md:flex-row gap-4 mt-4">
+                            <button onclick="generateVCardQR()" class="flex-1 bg-slate-600 hover:bg-slate-700 text-white font-semibold py-3 px-4 rounded-xl transition-all flex justify-center items-center gap-2">
+                                <i data-lucide="qr-code" class="w-5 h-5"></i> Normal QR
+                            </button>
+                            <button onclick="downloadVCF()" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-xl transition-all flex justify-center items-center gap-2 shadow-lg shadow-green-600/30">
+                                <i data-lucide="download-cloud" class="w-5 h-5"></i> 1. Download .vcf File
+                            </button>
+                        </div>
+
+                        <!-- Smart Trick Box -->
+                        <div class="mt-6 p-5 border border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800 rounded-xl">
+                            <h3 class="font-bold text-blue-800 dark:text-blue-300 mb-2 flex items-center gap-2">
+                                <i data-lucide="shield-check" class="w-5 h-5"></i> 100% Working Trick (Paytm/PhonePe के लिए)
+                            </h3>
+                            <ol class="text-sm text-blue-700 dark:text-blue-400 mb-4 list-decimal pl-5 space-y-1">
+                                <li>ऊपर वाले हरे (green) बटन से <b>.vcf file डाउनलोड</b> करें।</li>
+                                <li>उस फाइल को अपने <b>Google Drive</b> में अपलोड करें।</li>
+                                <li>Drive में फाइल का Access "Anyone with the link" करें और शेयर लिंक यहाँ डालें:</li>
+                            </ol>
+                            <input type="url" id="drive-link" placeholder="जैसे: https://drive.google.com/file/d/1A2b3C.../view?usp=sharing" class="w-full px-4 py-2.5 rounded-xl border border-blue-200 dark:border-blue-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none mb-3 text-sm">
+                            <button onclick="generateDriveQR()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-xl transition-all flex justify-center items-center gap-2">
+                                <i data-lucide="link" class="w-5 h-5"></i> 2. Google Drive Smart QR बनाएँ
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Output Container -->
@@ -448,8 +470,10 @@
             showToast('Dynamic UPI QR taiyar hai!');
         }
 
-        // 6. STANDARD vCard QR (Direct Contact Data, No Links)
-        function generateVCardQR() {
+        // --- vCard Functions ---
+        
+        // Helper function: vCard Data generate karne ke liye
+        function getVCardData() {
             let fName = document.getElementById('vc-fname').value.trim();
             let lName = document.getElementById('vc-lname').value.trim();
             let phone = document.getElementById('vc-phone').value.trim();
@@ -458,18 +482,69 @@
 
             if (!fName || !phone) {
                 showToast('First Name aur Mobile Number compulsory hain!');
+                return null;
+            }
+
+            let vcardLines = [
+                "BEGIN:VCARD",
+                "VERSION:3.0",
+                `N:${lName};${fName};;;`,
+                `FN:${fName} ${lName}`.trim(),
+                `TEL;TYPE=CELL:${phone}`
+            ];
+
+            if (email) vcardLines.push(`EMAIL;TYPE=WORK:${email}`);
+            if (org) vcardLines.push(`ORG:${org}`);
+            vcardLines.push("END:VCARD");
+
+            return vcardLines.join("\r\n");
+        }
+
+        // 1. Manually .vcf file download karna
+        function downloadVCF() {
+            let vcardData = getVCardData();
+            if(!vcardData) return;
+
+            let fName = document.getElementById('vc-fname').value.trim();
+            
+            // Browser me file banakar force download karein
+            let blob = new Blob([vcardData], { type: 'text/vcard' });
+            let downloadUrl = URL.createObjectURL(blob);
+            
+            let a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = `${fName}_Contact.vcf`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(downloadUrl);
+            
+            showToast('.vcf File download ho gayi hai! Ab ise Drive par dalein.');
+        }
+
+        // 2. Google Drive link se Direct Download QR banana (Smart Trick)
+        function generateDriveQR() {
+            let driveLink = document.getElementById('drive-link').value.trim();
+            if (!driveLink) {
+                showToast('Kripya Google Drive ka link dalein!');
                 return;
             }
 
-            // Ekdum standard vCard format jo real vCard websites use karti hain
-            let vcard = `BEGIN:VCARD\nVERSION:3.0\nN:${lName};${fName};;;\nFN:${fName} ${lName}\nTEL;TYPE=CELL:${phone}\n`;
-            if (email) vcard += `EMAIL;TYPE=INTERNET:${email}\n`;
-            if (org) vcard += `ORG:${org}\n`;
-            vcard += `END:VCARD`;
+            let finalUrl = driveLink;
+            // Google Drive URL se File ID nikal kar "Direct Download" link banana
+            let match = driveLink.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+            if (!match) {
+                match = driveLink.match(/id=([a-zA-Z0-9_-]+)/);
+            }
+
+            if (match && match[1]) {
+                // Ye jadu wala link hai jo drive file ko bina page open kiye direct download karata hai
+                finalUrl = `https://drive.google.com/uc?export=download&id=${match[1]}`;
+            }
 
             new QRious({
                 element: document.getElementById('vcard-canvas'),
-                value: vcard,
+                value: finalUrl,
                 size: 250,
                 background: 'white',
                 foreground: '#000000',
@@ -477,7 +552,25 @@
             });
 
             document.getElementById('vcard-output-container').classList.remove('hidden');
-            showToast('Contact QR taiyar hai! Camera App se scan karein.');
+            showToast('Smart Contact QR taiyar hai! Har scanner support karega.');
+        }
+
+        // 3. STANDARD vCard QR (Direct Contact Data, No Links)
+        function generateVCardQR() {
+            let vcardData = getVCardData();
+            if(!vcardData) return;
+
+            new QRious({
+                element: document.getElementById('vcard-canvas'),
+                value: vcardData,
+                size: 250,
+                background: 'white',
+                foreground: '#000000',
+                level: 'M' 
+            });
+
+            document.getElementById('vcard-output-container').classList.remove('hidden');
+            showToast('Normal Contact QR taiyar hai! Camera App se scan karein.');
         }
 
         function downloadCode(canvasId, fileName) {
@@ -497,7 +590,15 @@
         function clearBarcode() { document.getElementById('barcode-input').value = ''; document.getElementById('barcode-output-container').classList.add('hidden'); }
         function clearStaticUPI() { document.getElementById('static-upi-id').value = ''; document.getElementById('static-upi-name').value = ''; document.getElementById('static-upi-output-container').classList.add('hidden'); }
         function clearDynamicUPI() { document.getElementById('dynamic-upi-id').value = ''; document.getElementById('dynamic-upi-name').value = ''; document.getElementById('dynamic-upi-amount').value = ''; document.getElementById('dynamic-upi-output-container').classList.add('hidden'); }
-        function clearVCard() { document.getElementById('vc-fname').value = ''; document.getElementById('vc-lname').value = ''; document.getElementById('vc-phone').value = ''; document.getElementById('vc-email').value = ''; document.getElementById('vc-org').value = ''; document.getElementById('vcard-output-container').classList.add('hidden'); }
+        function clearVCard() { 
+            document.getElementById('vc-fname').value = ''; 
+            document.getElementById('vc-lname').value = ''; 
+            document.getElementById('vc-phone').value = ''; 
+            document.getElementById('vc-email').value = ''; 
+            document.getElementById('vc-org').value = ''; 
+            document.getElementById('drive-link').value = '';
+            document.getElementById('vcard-output-container').classList.add('hidden'); 
+        }
     </script>
 </body>
 </html>
