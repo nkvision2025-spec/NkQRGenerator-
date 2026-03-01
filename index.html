@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universal Code Generator</title>
+    <!-- Tailwind CSS styling ke liye -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Tailwind Dark Mode Config -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+
+    <!-- QR Code generation ke liye library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+    <!-- Barcode generation ke liye library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"></script>
+    <!-- Icons ke liye -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        /* Smooth transitions ke liye custom styles */
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-sans h-screen flex overflow-hidden selection:bg-blue-200 dark:selection:bg-blue-800 transition-colors duration-300">
+
+    <!-- Smart vCard Download Overlay (Jab koi QR scan karke link open karega tab ye dikhega) -->
+    <div id="vcard-download-modal" class="fixed inset-0 bg-slate-900/95 z-[100] hidden flex-col items-center justify-center text-white p-6">
+        <i data-lucide="user-check" class="w-20 h-20 text-green-400 mb-6 animate-pulse"></i>
+        <h2 class="text-3xl font-bold mb-3 text-center">Contact Save Ho Raha Hai...</h2>
+        <p class="text-slate-300 text-center mb-8 text-lg">Agar file download ho gayi hai, toh use <b class="text-white bg-slate-800 px-2 py-1 rounded">Open</b> karein aur Contact Save karein.</p>
+        <button onclick="window.location.href=window.location.pathname" class="bg-blue-600 hover:bg-blue-700 px-8 py-4 rounded-xl font-bold text-lg transition-all shadow-lg shadow-blue-600/30">
+            Wapas App Par Jayein
+        </button>
+    </div>
+
+    <!-- Theme Toggle Button (Top Right) -->
+    <button onclick="toggleTheme()" id="theme-toggle" class="fixed top-6 right-8 z-50 p-3 rounded-full bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 shadow-md border border-slate-200 dark:border-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-all">
+        <i data-lucide="moon" id="theme-icon" class="w-5 h-5"></i>
+    </button>
+
+    <!-- Left Sidebar -->
+    <aside class="w-72 bg-white dark:bg-slate-800 shadow-xl flex flex-col z-10 transition-colors duration-300 border-r border-transparent dark:border-slate-700">
+        <div class="p-6 border-b border-slate-100 dark:border-slate-700 flex items-center gap-3">
+            <div class="bg-blue-600 p-2 rounded-lg text-white">
+                <i data-lucide="qr-code"></i>
+            </div>
+            <h1 class="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">Generator<span class="text-blue-600 dark:text-blue-400">Pro</span></h1>
+        </div>
+        
+        <nav class="flex-1 p-4 space-y-2">
+            <!-- Sidebar Navigation Buttons -->
+            <button onclick="switchTab('qr-tab')" id="btn-qr-tab" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-semibold transition-all">
+                <i data-lucide="scan" class="w-5 h-5"></i>
+                Normal QR Code
+            </button>
+            
+            <button onclick="switchTab('barcode-tab')" id="btn-barcode-tab" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-all">
+                <i data-lucide="barcode" class="w-5 h-5"></i>
+                Barcode Banayein
+            </button>
+            
+            <button onclick="switchTab('upi-static-tab')" id="btn-upi-static-tab" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-all">
+                <i data-lucide="store" class="w-5 h-5"></i>
+                स्थिर QR (Static)
+            </button>
+
+            <button onclick="switchTab('upi-dynamic-tab')" id="btn-upi-dynamic-tab" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-all">
+                <i data-lucide="banknote" class="w-5 h-5"></i>
+                गतिशील QR (Dynamic)
+            </button>
+
+            <button onclick="switchTab('vcard-tab')" id="btn-vcard-tab" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-all">
+                <i data-lucide="contact" class="w-5 h-5"></i>
+                vCard QR (Contact)
+            </button>
+        </nav>
+
+        <div class="p-4 border-t border-slate-100 dark:border-slate-700 text-sm text-slate-400 dark:text-slate-500 text-center">
+            GitHub Pages ke liye taiyar 🚀
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 p-8 overflow-y-auto bg-slate-50 dark:bg-slate-900 transition-colors duration-300 relative">
+        
+        <div class="max-w-3xl mx-auto mt-4">
+
+            <!-- 1. Normal QR Code Tab -->
+            <div id="qr-tab" class="tab-content active">
+                <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-8 transition-colors duration-300">
+                    <div class="flex justify-between items-center mb-2">
+                        <h2 class="text-2xl font-bold flex items-center gap-2 dark:text-white">
+                            <i data-lucide="qr-code" class="text-blue-600 dark:text-blue-400"></i> QR Code Banayein
+                        </h2>
+                        <button onclick="clearQR()" class="text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors flex items-center gap-1 text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 border border-transparent hover:border-red-100 dark:hover:border-red-800/50">
+                            <i data-lucide="rotate-ccw" class="w-4 h-4"></i> Clear
+                        </button>
+                    </div>
+                    <p class="text-slate-500 dark:text-slate-400 mb-6 text-sm">Text, website ka URL, ya Image/Video ka online link yaha dalein.</p>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Aapka Content (Text ya Link)</label>
+                            <textarea id="qr-input" rows="3" class="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500" placeholder="Jaise: https://github.com ya koi message..."></textarea>
+                        </div>
+                        <button onclick="generateQR()" class="w-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-xl transition-all flex justify-center items-center gap-2">
+                            <i data-lucide="zap" class="w-5 h-5"></i> QR Code Generate Karein
+                        </button>
+                    </div>
+
+                    <!-- Output Container -->
+                    <div id="qr-output-container" class="hidden mt-8 flex flex-col items-center p-6 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-700">
+                        <canvas id="qr-canvas" class="rounded-lg shadow-sm mb-4"></canvas>
+                        <button onclick="downloadCode('qr-canvas', 'QR_Code.png')" class="text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 font-medium py-2 px-6 rounded-lg transition-colors flex items-center gap-2">
+                            <i data-lucide="download" class="w-4 h-4"></i> Download Karein
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. Barcode Tab -->
+            <div id="barcode-tab" class="tab-content">
+                <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-8 transition-colors duration-300">
+                    <div class="flex justify-between items-center mb-2">
+                        <h2 class="text-2xl font-bold flex items-center gap-2 dark:text-white">
+                            <i data-lucide="barcode" class="text-blue-600 dark:text-blue-400"></i> Barcode Banayein
+                        </h2>
+                        <button onclick="clearBarcode()" class="text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors flex items-center gap-1 text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 border border-transparent hover:border-red-100 dark:hover:border-red-800/50">
+                            <i data-lucide="rotate-ccw" class="w-4 h-4"></i> Clear
+                        </button>
+                    </div>
+                    <p class="text-slate-500 dark:text-slate-400 mb-6 text-sm">Product number ya koi text dalein jiska barcode banana hai (CODE128 format).</p>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Barcode Value</label>
+                            <input type="text" id="barcode-input" class="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500" placeholder="Udaharan: 1234567890 ya ITEM-X-99">
+                        </div>
+                        <button onclick="generateBarcode()" class="w-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-xl transition-all flex justify-center items-center gap-2">
+                            <i data-lucide="zap" class="w-5 h-5"></i> Barcode Generate Karein
+                        </button>
+                    </div>
+
+                    <!-- Output Container -->
+                    <div id="barcode-output-container" class="hidden mt-8 flex flex-col items-center p-6 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-700 overflow-hidden">
+                        <canvas id="barcode-canvas" class="max-w-full rounded-lg shadow-sm mb-4"></canvas>
+                        <button onclick="downloadCode('barcode-canvas', 'Barcode.png')" class="text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 font-medium py-2 px-6 rounded-lg transition-colors flex items-center gap-2">
+                            <i data-lucide="download" class="w-4 h-4"></i> Download Karein
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. Static UPI Payment QR Tab -->
+            <div id="upi-static-tab" class="tab-content">
+                <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-8 transition-colors duration-300">
+                    <div class="flex justify-between items-center mb-2">
+                        <h2 class="text-2xl font-bold flex items-center gap-2 dark:text-white">
+                            <i data-lucide="store" class="text-blue-600 dark:text-blue-400"></i> स्थिर QR (Static UPI)
+                        </h2>
+                        <button onclick="clearStaticUPI()" class="text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors flex items-center gap-1 text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 border border-transparent hover:border-red-100 dark:hover:border-red-800/50">
+                            <i data-lucide="rotate-ccw" class="w-4 h-4"></i> Clear
+                        </button>
+                    </div>
+                    <p class="text-slate-500 dark:text-slate-400 mb-6 text-sm">दुकानदार के लिए: इसमें ग्राहक खुद राशि (Amount) डालकर पेमेंट करते हैं।</p>
+                    
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">UPI ID (VPA) <span class="text-red-500">*</span></label>
+                                <input type="text" id="static-upi-id" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent dark:text-white focus:ring-2 focus:ring-blue-500 outline-none placeholder:text-slate-400 dark:placeholder:text-slate-500" placeholder="Jaise: mobile@upi">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Payee Name (Naam) <span class="text-red-500">*</span></label>
+                                <input type="text" id="static-upi-name" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent dark:text-white focus:ring-2 focus:ring-blue-500 outline-none placeholder:text-slate-400 dark:placeholder:text-slate-500" placeholder="Aapka naam jo bank me hai">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Payment Note (Optional)</label>
+                            <input type="text" id="static-upi-note" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent dark:text-white focus:ring-2 focus:ring-blue-500 outline-none placeholder:text-slate-400 dark:placeholder:text-slate-500" placeholder="Jaise: Shop Payment">
+                        </div>
+                        <button onclick="generateStaticUPIQR()" class="w-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-xl transition-all flex justify-center items-center gap-2 mt-4">
+                            <i data-lucide="zap" class="w-5 h-5"></i> Static QR Generate Karein
+                        </button>
+                    </div>
+
+                    <!-- Output Container -->
+                    <div id="static-upi-output-container" class="hidden mt-8 flex flex-col items-center p-6 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-700">
+                        <div class="bg-white p-4 rounded-xl shadow-md border border-slate-100 mb-4 text-center">
+                            <h3 id="static-upi-display-name" class="font-bold text-lg text-slate-800 mb-1"></h3>
+                            <p id="static-upi-display-id" class="text-slate-500 text-sm mb-4"></p>
+                            <canvas id="static-upi-canvas" class="mx-auto rounded"></canvas>
+                            <p class="text-xs text-slate-400 mt-4 flex items-center justify-center gap-1">
+                                <i data-lucide="shield-check" class="w-4 h-4 text-green-500"></i> Scan & Enter Amount
+                            </p>
+                        </div>
+                        <button onclick="downloadCode('static-upi-canvas', 'Static_UPI_QR.png')" class="text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 font-medium py-2 px-6 rounded-lg transition-colors flex items-center gap-2">
+                            <i data-lucide="download" class="w-4 h-4"></i> Sirf QR Download Karein
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. Dynamic UPI Payment QR Tab -->
+            <div id="upi-dynamic-tab" class="tab-content">
+                <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-8 transition-colors duration-300">
+                    <div class="flex justify-between items-center mb-2">
+                        <h2 class="text-2xl font-bold flex items-center gap-2 dark:text-white">
+                            <i data-lucide="banknote" class="text-blue-600 dark:text-blue-400"></i> गतिशील QR (Dynamic UPI)
+                        </h2>
+                        <button onclick="clearDynamicUPI()" class="text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors flex items-center gap-1 text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 border border-transparent hover:border-red-100 dark:hover:border-red-800/50">
+                            <i data-lucide="rotate-ccw" class="w-4 h-4"></i> Clear
+                        </button>
+                    </div>
+                    <p class="text-slate-500 dark:text-slate-400 mb-6 text-sm">हर ट्रांजेक्शन के लिए अलग: इसमें राशि (Amount) पहले से फिक्स होती है।</p>
+                    
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">UPI ID (VPA) <span class="text-red-500">*</span></label>
+                                <input type="text" id="dynamic-upi-id" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent dark:text-white focus:ring-2 focus:ring-blue-500 outline-none placeholder:text-slate-400 dark:placeholder:text-slate-500" placeholder="Jaise: mobile@upi">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Payee Name <span class="text-red-500">*</span></label>
+                                <input type="text" id="dynamic-upi-name" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent dark:text-white focus:ring-2 focus:ring-blue-500 outline-none placeholder:text-slate-400 dark:placeholder:text-slate-500" placeholder="Aapka naam">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Amount / राशि <span class="text-red-500">*</span></label>
+                                <input type="number" id="dynamic-upi-amount" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent dark:text-white focus:ring-2 focus:ring-blue-500 outline-none placeholder:text-slate-400 dark:placeholder:text-slate-500" placeholder="Fixed amount jaise: 500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Payment Note (Optional)</label>
+                                <input type="text" id="dynamic-upi-note" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent dark:text-white focus:ring-2 focus:ring-blue-500 outline-none placeholder:text-slate-400 dark:placeholder:text-slate-500" placeholder="Jaise: Bill #102">
+                            </div>
+                        </div>
+                        <button onclick="generateDynamicUPIQR()" class="w-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-xl transition-all flex justify-center items-center gap-2 mt-4">
+                            <i data-lucide="zap" class="w-5 h-5"></i> Dynamic QR Generate Karein
+                        </button>
+                    </div>
+
+                    <!-- Output Container -->
+                    <div id="dynamic-upi-output-container" class="hidden mt-8 flex flex-col items-center p-6 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-700">
+                        <div class="bg-white p-4 rounded-xl shadow-md border border-slate-100 mb-4 text-center">
+                            <h3 id="dynamic-upi-display-name" class="font-bold text-lg text-slate-800 mb-1"></h3>
+                            <h2 id="dynamic-upi-display-amount" class="font-bold text-3xl text-blue-600 mb-2"></h2>
+                            <p id="dynamic-upi-display-id" class="text-slate-500 text-sm mb-4"></p>
+                            <canvas id="dynamic-upi-canvas" class="mx-auto rounded"></canvas>
+                            <p class="text-xs text-slate-400 mt-4 flex items-center justify-center gap-1">
+                                <i data-lucide="shield-check" class="w-4 h-4 text-green-500"></i> Scan to Pay Exact Amount
+                            </p>
+                        </div>
+                        <button onclick="downloadCode('dynamic-upi-canvas', 'Dynamic_UPI_QR.png')" class="text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 font-medium py-2 px-6 rounded-lg transition-colors flex items-center gap-2">
+                            <i data-lucide="download" class="w-4 h-4"></i> Sirf QR Download Karein
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 5. Smart vCard QR Tab -->
+            <div id="vcard-tab" class="tab-content">
+                <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-8 transition-colors duration-300">
+                    <div class="flex justify-between items-center mb-2">
+                        <h2 class="text-2xl font-bold flex items-center gap-2 dark:text-white">
+                            <i data-lucide="contact" class="text-blue-600 dark:text-blue-400"></i> vCard QR Banayein
+                        </h2>
+                        <button onclick="clearVCard()" class="text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors flex items-center gap-1 text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 border border-transparent hover:border-red-100 dark:hover:border-red-800/50">
+                            <i data-lucide="rotate-ccw" class="w-4 h-4"></i> Clear
+                        </button>
+                    </div>
+                    <p class="text-slate-500 dark:text-slate-400 mb-6 text-sm">अब यह <b class="text-blue-500">Smart Link Technology</b> का यूज़ करता है! आप इसे <b>Paytm, PhonePe, या किसी भी स्कैनर</b> से स्कैन कर सकते हैं, यह 100% "Save Contact" करेगा।</p>
+                    
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">First Name (पहला नाम) <span class="text-red-500">*</span></label>
+                                <input type="text" id="vc-fname" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent dark:text-white focus:ring-2 focus:ring-blue-500 outline-none placeholder:text-slate-400 dark:placeholder:text-slate-500" placeholder="Jaise: Rahul">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Last Name (सरनेम)</label>
+                                <input type="text" id="vc-lname" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent dark:text-white focus:ring-2 focus:ring-blue-500 outline-none placeholder:text-slate-400 dark:placeholder:text-slate-500" placeholder="Jaise: Sharma">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Mobile Number <span class="text-red-500">*</span></label>
+                                <input type="tel" id="vc-phone" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent dark:text-white focus:ring-2 focus:ring-blue-500 outline-none placeholder:text-slate-400 dark:placeholder:text-slate-500" placeholder="+91 9876543210">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Email ID</label>
+                                <input type="email" id="vc-email" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent dark:text-white focus:ring-2 focus:ring-blue-500 outline-none placeholder:text-slate-400 dark:placeholder:text-slate-500" placeholder="rahul@example.com">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Company / Organization</label>
+                            <input type="text" id="vc-org" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent dark:text-white focus:ring-2 focus:ring-blue-500 outline-none placeholder:text-slate-400 dark:placeholder:text-slate-500" placeholder="Company ka naam (Optional)">
+                        </div>
+                        <button onclick="generateVCardQR()" class="w-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-xl transition-all flex justify-center items-center gap-2 mt-4">
+                            <i data-lucide="zap" class="w-5 h-5"></i> Smart Contact QR Generate Karein
+                        </button>
+                    </div>
+
+                    <!-- Output Container -->
+                    <div id="vcard-output-container" class="hidden mt-8 flex flex-col items-center p-6 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-700">
+                        <canvas id="vcard-canvas" class="rounded-lg shadow-sm mb-4"></canvas>
+                        <p class="text-sm text-slate-500 dark:text-slate-400 mb-4 font-medium flex items-center gap-1">
+                            <i data-lucide="user-plus" class="w-4 h-4"></i> Any Scanner Supported (Paytm/PhonePe)
+                        </p>
+                        <button onclick="downloadCode('vcard-canvas', 'Smart_Contact_QR.png')" class="text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 font-medium py-2 px-6 rounded-lg transition-colors flex items-center gap-2">
+                            <i data-lucide="download" class="w-4 h-4"></i> Download Karein
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Custom Messages (Toasts) dikhane ke liye -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-slate-800 dark:bg-slate-700 text-white px-6 py-3 rounded-xl shadow-lg transform transition-all duration-300 translate-y-20 opacity-0 z-50 flex items-center gap-2">
+        <i data-lucide="info" class="w-5 h-5 text-blue-400"></i>
+        <span id="toast-msg">Message yaha aayega</span>
+    </div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        // Icons initialize karein
+        lucide.createIcons();
+
+        // -------------------------------------------------------------
+        // MAGIC SCRIPT: Jab koi QR scan karke is URL par aayega, 
+        // to automatically .vcf file download ho jayegi.
+        // -------------------------------------------------------------
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            // Check karein kya URL me vcard banane ki command hai?
+            if (urlParams.get('vcard') === 'true') {
+                
+                // Overlay show karein
+                const modal = document.getElementById('vcard-download-modal');
+                modal.classList.remove('hidden');
+                modal.style.display = 'flex'; 
+
+                // URL se data nikalein
+                const fName = urlParams.get('fn') || '';
+                const lName = urlParams.get('ln') || '';
+                const phone = urlParams.get('ph') || '';
+                const email = urlParams.get('em') || '';
+                const org = urlParams.get('org') || '';
+
+                let fullName = fName;
+                if (lName) fullName += " " + lName;
+
+                // Ekdum Clean vCard format banayein
+                let vcardLines = [
+                    "BEGIN:VCARD",
+                    "VERSION:3.0",
+                    `N:${lName};${fName};;;`,
+                    `FN:${fullName}`,
+                    `TEL;TYPE=CELL:${phone}`
+                ];
+                if (email) vcardLines.push(`EMAIL;TYPE=INTERNET:${email}`);
+                if (org) vcardLines.push(`ORG:${org}`);
+                vcardLines.push("END:VCARD");
+
+                let vcardData = vcardLines.join("\r\n");
+                
+                // Browser me file banakar force download karein
+                let blob = new Blob([vcardData], { type: 'text/vcard' });
+                let downloadUrl = URL.createObjectURL(blob);
+                
+                let a = document.createElement('a');
+                a.href = downloadUrl;
+                a.download = `${fName}_Contact.vcf`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(downloadUrl);
+            }
+        });
+
+        // Theme preference check
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+            updateThemeIcon(true);
+        } else {
+            document.documentElement.classList.remove('dark');
+            updateThemeIcon(false);
+        }
+
+        function toggleTheme() {
+            if (document.documentElement.classList.contains('dark')) {
+                document.documentElement.classList.remove('dark');
+                localStorage.theme = 'light';
+                updateThemeIcon(false);
+            } else {
+                document.documentElement.classList.add('dark');
+                localStorage.theme = 'dark';
+                updateThemeIcon(true);
+            }
+        }
+
+        function updateThemeIcon(isDark) {
+            const btn = document.getElementById('theme-toggle');
+            if (isDark) {
+                btn.innerHTML = '<i data-lucide="sun" class="w-5 h-5 text-yellow-500"></i>';
+            } else {
+                btn.innerHTML = '<i data-lucide="moon" class="w-5 h-5"></i>';
+            }
+            lucide.createIcons();
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.className = 'nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-all';
+            });
+
+            document.getElementById(tabId).classList.add('active');
+            
+            let activeBtnId = 'btn-' + tabId;
+            let activeBtn = document.getElementById(activeBtnId);
+            activeBtn.className = 'nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-semibold transition-all';
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-msg').innerText = message;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        function generateQR() {
+            let inputVal = document.getElementById('qr-input').value.trim();
+            if (!inputVal) {
+                showToast('Kripya koi text ya link dalein!');
+                return;
+            }
+            new QRious({ element: document.getElementById('qr-canvas'), value: inputVal, size: 250, background: 'white', foreground: 'black', level: 'H' });
+            document.getElementById('qr-output-container').classList.remove('hidden');
+            showToast('QR Code taiyar hai!');
+        }
+
+        function generateBarcode() {
+            let inputVal = document.getElementById('barcode-input').value.trim();
+            if (!inputVal) {
+                showToast('Kripya barcode ke liye text ya number dalein!');
+                return;
+            }
+            try {
+                JsBarcode("#barcode-canvas", inputVal, { format: "CODE128", lineColor: "#000", width: 2, height: 100, displayValue: true, margin: 10, background: "#ffffff" });
+                document.getElementById('barcode-output-container').classList.remove('hidden');
+                showToast('Barcode taiyar hai!');
+            } catch (e) {
+                showToast('Invalid character. Kripya valid text/number dalein.');
+            }
+        }
+
+        function generateStaticUPIQR() {
+            let upiId = document.getElementById('static-upi-id').value.trim();
+            let upiName = document.getElementById('static-upi-name').value.trim();
+            let upiNote = document.getElementById('static-upi-note').value.trim();
+            if (!upiId || !upiName) { showToast('UPI ID aur Naam compulsory hain!'); return; }
+
+            let upiString = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(upiName)}&cu=INR`;
+            if (upiNote) upiString += `&tn=${encodeURIComponent(upiNote)}`;
+
+            document.getElementById('static-upi-display-name').innerText = upiName;
+            document.getElementById('static-upi-display-id').innerText = upiId;
+            new QRious({ element: document.getElementById('static-upi-canvas'), value: upiString, size: 250, background: 'white', foreground: '#1e293b', level: 'H' });
+            document.getElementById('static-upi-output-container').classList.remove('hidden');
+            showToast('Static UPI QR taiyar hai!');
+        }
+
+        function generateDynamicUPIQR() {
+            let upiId = document.getElementById('dynamic-upi-id').value.trim();
+            let upiName = document.getElementById('dynamic-upi-name').value.trim();
+            let upiAmount = document.getElementById('dynamic-upi-amount').value.trim();
+            let upiNote = document.getElementById('dynamic-upi-note').value.trim();
+            if (!upiId || !upiName || !upiAmount) { showToast('UPI ID, Naam aur Rakam compulsory hain!'); return; }
+
+            let upiString = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(upiName)}&am=${encodeURIComponent(upiAmount)}&cu=INR`;
+            if (upiNote) upiString += `&tn=${encodeURIComponent(upiNote)}`;
+
+            document.getElementById('dynamic-upi-display-name').innerText = upiName;
+            document.getElementById('dynamic-upi-display-amount').innerText = '₹ ' + upiAmount;
+            document.getElementById('dynamic-upi-display-id').innerText = upiId;
+            new QRious({ element: document.getElementById('dynamic-upi-canvas'), value: upiString, size: 250, background: 'white', foreground: '#1e293b', level: 'H' });
+            document.getElementById('dynamic-upi-output-container').classList.remove('hidden');
+            showToast('Dynamic UPI QR taiyar hai!');
+        }
+
+        // 6. SMART vCard QR - Ab Text ke bajay ek Link (URL) generate karega
+        function generateVCardQR() {
+            let fName = document.getElementById('vc-fname').value.trim();
+            let lName = document.getElementById('vc-lname').value.trim();
+            let phone = document.getElementById('vc-phone').value.trim();
+            let email = document.getElementById('vc-email').value.trim();
+            let org = document.getElementById('vc-org').value.trim();
+
+            if (!fName || !phone) {
+                showToast('First Name aur Mobile Number compulsory hain!');
+                return;
+            }
+
+            // URL ko ekdum clean tarike se nikalna (Bina purane parameters ke)
+            let baseUrl = window.location.href.split('?')[0];
+            
+            // Check agar user isko bina internet (Local/Computer) ke chala raha hai
+            if (window.location.protocol === 'file:' || window.location.hostname.includes('google')) {
+                showToast('⚠️ Github par upload karne ke baad hi ye Paytm/PhonePe me sahi chalega!');
+            }
+
+            // Data ko URL parameters me daal rahe hain
+            let linkUrl = `${baseUrl}?vcard=true&fn=${encodeURIComponent(fName)}&ln=${encodeURIComponent(lName)}&ph=${encodeURIComponent(phone)}&em=${encodeURIComponent(email)}&org=${encodeURIComponent(org)}`;
+
+            // QR Code me vo Link generate hoga
+            new QRious({
+                element: document.getElementById('vcard-canvas'),
+                value: linkUrl,
+                size: 250,
+                background: 'white',
+                foreground: '#000000',
+                level: 'M' 
+            });
+
+            document.getElementById('vcard-output-container').classList.remove('hidden');
+            
+            // Agar website live nahi hai, toh user ko samjhane ke liye ek alert bhi dikhayein
+            if (window.location.protocol === 'file:' || window.location.hostname.includes('googleusercontent') || window.location.hostname.includes('html-preview')) {
+                setTimeout(() => {
+                    alert("Testing Note:\n\nAbhi aap is code ko Local/Preview me test kar rahe hain isliye Paytm par 'Search did not match' aayega.\n\nKripya is index.html file ko GitHub Pages par upload (host) karein. Website LIVE hone ke baad ye Smart Link har Payment App (Paytm, PhonePe) me 100% kaam karega!");
+                }, 500);
+            } else {
+                showToast('Smart Contact QR taiyar hai! Paytm/PhonePe se scan karein.');
+            }
+        }
+
+        function downloadCode(canvasId, fileName) {
+            let canvas = document.getElementById(canvasId);
+            let imageURI = canvas.toDataURL("image/png");
+            let link = document.createElement("a");
+            link.href = imageURI;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast('Download shuru ho gaya hai!');
+        }
+
+        // 8. Form Clearing
+        function clearQR() { document.getElementById('qr-input').value = ''; document.getElementById('qr-output-container').classList.add('hidden'); showToast('QR Code form clear kar diya gaya hai'); }
+        function clearBarcode() { document.getElementById('barcode-input').value = ''; document.getElementById('barcode-output-container').classList.add('hidden'); showToast('Barcode form clear kar diya gaya hai'); }
+        function clearStaticUPI() { document.getElementById('static-upi-id').value = ''; document.getElementById('static-upi-name').value = ''; document.getElementById('static-upi-note').value = ''; document.getElementById('static-upi-output-container').classList.add('hidden'); showToast('Static UPI form clear kar diya gaya hai'); }
+        function clearDynamicUPI() { document.getElementById('dynamic-upi-id').value = ''; document.getElementById('dynamic-upi-name').value = ''; document.getElementById('dynamic-upi-amount').value = ''; document.getElementById('dynamic-upi-note').value = ''; document.getElementById('dynamic-upi-output-container').classList.add('hidden'); showToast('Dynamic UPI form clear kar diya gaya hai'); }
+        function clearVCard() { document.getElementById('vc-fname').value = ''; document.getElementById('vc-lname').value = ''; document.getElementById('vc-phone').value = ''; document.getElementById('vc-email').value = ''; document.getElementById('vc-org').value = ''; document.getElementById('vcard-output-container').classList.add('hidden'); showToast('vCard form clear kar diya gaya hai'); }
+    </script>
+</body>
+</html>
